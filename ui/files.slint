@@ -1,0 +1,656 @@
+// Content views: Drive-style grid (folder chips + file cards) and a striped list.
+
+import { Pal, Motion, Sym } from "theme.slint";
+import { Icon, StateLayer } from "widgets.slint";
+
+export struct FileItem {
+    name: string,
+    kind: string,
+    size: string,
+    modified: string,
+    icon: string,
+    emblem: string,
+    is-dir: bool,
+    tint: color,
+    thumb: image,
+    has-thumb: bool,
+    selected: bool,
+    cut: bool,
+}
+
+// Filled folder in its colour with an optional glyph sitting on the folder body.
+export component FolderGlyph inherits Rectangle {
+    in property <length> size: 40px;
+    in property <color> tint;
+    in property <string> emblem;
+    width: size;
+    height: size;
+    Icon {
+        text: Sym.folder;
+        fill: true;
+        size: root.size;
+        color: root.tint;
+    }
+    if root.emblem != "": Icon {
+        height: self.size;
+        y: (root.size - self.height) / 2 + root.size * 0.05;
+        text: root.emblem;
+        fill: true;
+        size: root.size * 0.4;
+        color: Pal.dark ? root.tint.mix(#000000, 0.45) : root.tint.mix(#ffffff, 0.3);
+    }
+}
+
+// Icon for any item: folder glyph, or the type symbol in its colour.
+export component ItemIcon inherits Rectangle {
+    in property <FileItem> item;
+    in property <length> size: 24px;
+    width: size;
+    height: size;
+    if root.item.is-dir: VerticalLayout {
+        alignment: center;
+        FolderGlyph {
+            size: root.size;
+            tint: root.item.tint;
+            emblem: root.size >= 32px ? root.item.emblem : "";
+        }
+    }
+    if !root.item.is-dir: Icon {
+        text: root.item.icon;
+        fill: true;
+        size: root.size;
+        color: root.item.tint;
+    }
+}
+
+component Clicker inherits TouchArea {
+    callback press(bool, bool);
+    callback context(length, length);
+    callback open;
+    mouse-cursor: default;
+    pointer-event(e) => {
+        if e.kind == PointerEventKind.down {
+            if e.button == PointerEventButton.left {
+                self.press(e.modifiers.control, e.modifiers.shift);
+            } else if e.button == PointerEventButton.right {
+                self.context(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            }
+        }
+    }
+    double-clicked => { self.open(); }
+}
+
+component MoreButton inherits Rectangle {
+    in property <bool> shown;
+    in property <color> fg;
+    callback clicked(length, length);
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
+    opacity: shown ? 1 : 0;
+    animate opacity { duration: Motion.short; }
+    StateLayer {
+        border-radius: 16px;
+        hover: ta.has-hover;
+        pressed: ta.pressed;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+    }
+    Icon {
+        text: Sym.more-vert;
+        color: root.fg;
+    }
+    ta := TouchArea {
+        enabled: root.shown;
+        clicked => { root.clicked(root.absolute-position.x, root.absolute-position.y + root.height); }
+    }
+}
+
+component FolderCard inherits Rectangle {
+    in property <FileItem> item;
+    callback press(bool, bool);
+    callback context(length, length);
+    callback open;
+    border-radius: 12px;
+    background: item.selected ? Pal.secondary-container : Pal.surface-container;
+    animate background { duration: Motion.short; }
+    opacity: item.cut ? 0.5 : 1;
+
+    StateLayer {
+        border-radius: root.border-radius;
+        hover: ta.has-hover;
+        pressed: ta.pressed;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+        tint: root.item.selected ? Pal.on-secondary-container : Pal.on-surface;
+    }
+    ta := Clicker {
+        press(c, s) => { root.press(c, s); }
+        context(x, y) => { root.context(x, y); }
+        open => { root.open(); }
+    }
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 6px;
+        spacing: 14px;
+        VerticalLayout {
+            alignment: center;
+            FolderGlyph {
+                size: 28px;
+                tint: root.item.tint;
+                emblem: root.item.emblem;
+            }
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: root.item.name;
+            vertical-alignment: center;
+            overflow: elide;
+            font-size: 14px;
+            font-weight: 500;
+            color: root.item.selected ? Pal.on-secondary-container : Pal.on-surface;
+        }
+        VerticalLayout {
+            alignment: center;
+            MoreButton {
+                shown: ta.has-hover || root.item.selected;
+                fg: root.item.selected ? Pal.on-secondary-container : Pal.on-surface-variant;
+                clicked(x, y) => { root.context(x, y); }
+            }
+        }
+    }
+}
+
+component FileCard inherits Rectangle {
+    in property <FileItem> item;
+    callback press(bool, bool);
+    callback context(length, length);
+    callback open;
+    border-radius: 12px;
+    background: item.selected ? Pal.secondary-container : Pal.surface-container;
+    animate background { duration: Motion.short; }
+    opacity: item.cut ? 0.5 : 1;
+
+    StateLayer {
+        border-radius: root.border-radius;
+        hover: ta.has-hover;
+        pressed: ta.pressed;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+        tint: root.item.selected ? Pal.on-secondary-container : Pal.on-surface;
+    }
+    ta := Clicker {
+        press(c, s) => { root.press(c, s); }
+        context(x, y) => { root.context(x, y); }
+        open => { root.open(); }
+    }
+    VerticalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-bottom: 8px;
+        HorizontalLayout {
+            height: 48px;
+            padding-left: 6px;
+            spacing: 12px;
+            VerticalLayout {
+                alignment: center;
+                ItemIcon {
+                    item: root.item;
+                    size: 20px;
+                }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.item.name;
+                vertical-alignment: center;
+                overflow: elide;
+                font-size: 14px;
+                font-weight: 500;
+                color: root.item.selected ? Pal.on-secondary-container : Pal.on-surface;
+            }
+            VerticalLayout {
+                alignment: center;
+                MoreButton {
+                    shown: ta.has-hover || root.item.selected;
+                    fg: root.item.selected ? Pal.on-secondary-container : Pal.on-surface-variant;
+                    clicked(x, y) => { root.context(x, y); }
+                }
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            border-radius: 8px;
+            clip: true;
+            background: Pal.card;
+            if root.item.has-thumb: Image {
+                width: parent.width;
+                height: parent.height;
+                source: root.item.thumb;
+                image-fit: cover;
+            }
+            if !root.item.has-thumb: Icon {
+                text: root.item.icon;
+                fill: true;
+                size: min(parent.height * 0.5, 72px);
+                color: root.item.tint;
+            }
+        }
+    }
+}
+
+// Experimental uniform grid tile: folders and files share one size, name underneath.
+component Tile inherits Rectangle {
+    in property <FileItem> item;
+    callback press(bool, bool);
+    callback context(length, length);
+    callback open;
+    border-radius: 14px;
+    background: item.selected ? Pal.secondary-container : Pal.surface-container;
+    animate background { duration: Motion.short; }
+    opacity: item.cut ? 0.5 : 1;
+
+    StateLayer {
+        border-radius: root.border-radius;
+        hover: ta.has-hover;
+        pressed: ta.pressed;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+        tint: root.item.selected ? Pal.on-secondary-container : Pal.on-surface;
+    }
+    ta := Clicker {
+        press(c, s) => { root.press(c, s); }
+        context(x, y) => { root.context(x, y); }
+        open => { root.open(); }
+    }
+    VerticalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 8px;
+        Rectangle {
+            vertical-stretch: 1;
+            border-radius: 8px;
+            clip: true;
+            background: root.item.is-dir || root.item.has-thumb ? transparent : Pal.card;
+            if root.item.has-thumb: Image {
+                width: parent.width;
+                height: parent.height;
+                source: root.item.thumb;
+                image-fit: cover;
+            }
+            if !root.item.has-thumb && root.item.is-dir: FolderGlyph {
+                size: min(parent.height * 0.9, parent.width * 0.6);
+                tint: root.item.tint;
+                emblem: root.item.emblem;
+            }
+            if !root.item.has-thumb && !root.item.is-dir: Icon {
+                text: root.item.icon;
+                fill: true;
+                size: min(parent.height * 0.45, 56px);
+                color: root.item.tint;
+            }
+        }
+        Text {
+            height: 40px;
+            text: root.item.name;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+            font-size: 14px;
+            font-weight: 500;
+            color: root.item.selected ? Pal.on-secondary-container : Pal.on-surface;
+        }
+    }
+    MoreButton {
+        x: parent.width - self.width - 4px;
+        y: 4px;
+        shown: ta.has-hover || root.item.selected;
+        fg: root.item.selected ? Pal.on-secondary-container : Pal.on-surface-variant;
+        clicked(x, y) => { root.context(x, y); }
+    }
+}
+
+export component FileGrid inherits Rectangle {
+    in property <[FileItem]> items;
+    in property <int> folder-count;
+    in property <bool> uniform;
+    out property <int> cols: max(1, Math.floor((avail + gap) / (min-w + gap)));
+    callback press(int, bool, bool);
+    callback open(int);
+    callback context(int, length, length);
+
+    property <length> pad: 20px;
+    property <length> gap: 16px;
+    property <length> min-w: uniform ? 168px : 220px;
+    property <length> head: 48px;
+    property <length> avail: root.width - 2 * pad;
+    property <length> cw: (avail - (cols - 1) * gap) / cols;
+    property <length> tile-h: 48px + cw * 0.7;
+    property <length> folder-h: uniform ? tile-h : 48px;
+    property <length> file-h: uniform ? tile-h : 48px + cw * 0.62;
+    property <int> file-count: items.length - folder-count;
+    property <length> files-top: folder-count > 0 ? head + Math.ceil(folder-count / cols) * (folder-h + gap) : 0;
+    property <length> total: files-top + (file-count > 0 ? head + Math.ceil(file-count / cols) * (file-h + gap) : 0) + pad;
+
+    pure function item-y(i: int) -> length {
+        if i < folder-count {
+            return head + Math.floor(i / cols) * (folder-h + gap);
+        }
+        return files-top + head + Math.floor((i - folder-count) / cols) * (file-h + gap);
+    }
+
+    public function reveal(i: int) {
+        let top = item-y(i);
+        let bottom = top + (i < folder-count ? folder-h : file-h);
+        if top - head < -flick.content-y {
+            flick.content-y = -(top - head);
+        } else if bottom + gap > -flick.content-y + flick.height {
+            flick.content-y = -(bottom + gap - flick.height);
+        }
+    }
+
+    public function scroll-top() {
+        flick.content-y = 0;
+    }
+
+    flick := Flickable {
+        content-height: max(root.total, self.height);
+
+        TouchArea {
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down {
+                    if e.button == PointerEventButton.left {
+                        root.press(-1, e.modifiers.control, e.modifiers.shift);
+                    } else if e.button == PointerEventButton.right {
+                        root.context(-1, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                    }
+                }
+            }
+        }
+
+        if root.folder-count > 0: Text {
+            x: root.pad + 4px;
+            y: 0;
+            height: root.head;
+            text: "Folders";
+            vertical-alignment: center;
+            font-size: 14px;
+            font-weight: 500;
+            color: Pal.on-surface;
+        }
+        if root.file-count > 0: Text {
+            x: root.pad + 4px;
+            y: root.files-top;
+            height: root.head;
+            text: "Files";
+            vertical-alignment: center;
+            font-size: 14px;
+            font-weight: 500;
+            color: Pal.on-surface;
+        }
+
+        for it[i] in root.items: Rectangle {
+            property <bool> folder: i < root.folder-count;
+            property <int> j: folder ? i : i - root.folder-count;
+            x: root.pad + Math.mod(j, root.cols) * (root.cw + root.gap);
+            y: root.item-y(i);
+            width: root.cw;
+            height: folder ? root.folder-h : root.file-h;
+            // Only realise cards near the viewport; big folders stay cheap.
+            property <bool> near: self.y + self.height > -flick.content-y - 300px && self.y < -flick.content-y + flick.height + 300px;
+            if near && root.uniform: Tile {
+                item: it;
+                press(c, s) => { root.press(i, c, s); }
+                context(x, y) => { root.context(i, x, y); }
+                open => { root.open(i); }
+            }
+            if near && !root.uniform && folder: FolderCard {
+                item: it;
+                press(c, s) => { root.press(i, c, s); }
+                context(x, y) => { root.context(i, x, y); }
+                open => { root.open(i); }
+            }
+            if near && !root.uniform && !folder: FileCard {
+                item: it;
+                press(c, s) => { root.press(i, c, s); }
+                context(x, y) => { root.context(i, x, y); }
+                open => { root.open(i); }
+            }
+        }
+    }
+}
+
+// Column label. Sorting itself lives in the Sort chip (same place in grid and list);
+// the arrow only shows which column is sorted and in which direction.
+component HeaderCell inherits Rectangle {
+    in property <string> label;
+    in property <string> key;
+    in property <string> sort-key;
+    in property <bool> sort-asc;
+    in property <bool> right;
+    property <bool> active: key == sort-key;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 4px;
+        alignment: root.right ? end : start;
+        Text {
+            text: root.label;
+            vertical-alignment: center;
+            font-size: 13px;
+            font-weight: 500;
+            color: root.active ? Pal.on-surface : Pal.on-surface-variant;
+        }
+        if root.active: Icon {
+            text: root.sort-asc ? Sym.arrow-upward : Sym.arrow-downward;
+            size: 16px;
+            color: Pal.on-surface;
+        }
+    }
+}
+
+component ListRow inherits Rectangle {
+    in property <FileItem> item;
+    in property <bool> odd;
+    in property <length> col-date;
+    in property <length> col-size;
+    in property <length> col-kind;
+    callback press(bool, bool);
+    callback context(length, length);
+    callback open;
+    border-radius: 10px;
+    // Subtle zebra striping like Finder's list view.
+    background: item.selected ? Pal.secondary-container : odd ? Pal.on-surface.with-alpha(Pal.dark ? 0.035 : 0.03) : transparent;
+    animate background { duration: Motion.short; }
+    opacity: item.cut ? 0.5 : 1;
+
+    StateLayer {
+        border-radius: root.border-radius;
+        hover: ta.has-hover;
+        pressed: ta.pressed;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+        tint: root.item.selected ? Pal.on-secondary-container : Pal.on-surface;
+    }
+    ta := Clicker {
+        press(c, s) => { root.press(c, s); }
+        context(x, y) => { root.context(x, y); }
+        open => { root.open(); }
+    }
+    property <color> fg: item.selected ? Pal.on-secondary-container : Pal.on-surface;
+    property <color> fg2: item.selected ? Pal.on-secondary-container : Pal.on-surface-variant;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 4px;
+        spacing: 0;
+        Rectangle {
+            width: 40px;
+            VerticalLayout {
+                alignment: center;
+                ItemIcon {
+                    item: root.item;
+                    size: root.item.is-dir ? 26px : 22px;
+                }
+            }
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: root.item.name;
+            vertical-alignment: center;
+            overflow: elide;
+            font-size: 14px;
+            font-weight: 500;
+            color: root.fg;
+        }
+        Text {
+            width: root.col-date;
+            visible: self.width > 0;
+            text: root.item.modified;
+            vertical-alignment: center;
+            overflow: elide;
+            font-size: 13px;
+            color: root.fg2;
+        }
+        Text {
+            width: root.col-size;
+            visible: self.width > 0;
+            text: root.item.size;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+            font-size: 13px;
+            color: root.fg2;
+        }
+        Rectangle { width: root.col-kind > 0 ? 24px : 0; }
+        Text {
+            width: root.col-kind;
+            visible: self.width > 0;
+            text: root.item.kind;
+            vertical-alignment: center;
+            overflow: elide;
+            font-size: 13px;
+            color: root.fg2;
+        }
+        VerticalLayout {
+            alignment: center;
+            MoreButton {
+                shown: ta.has-hover || root.item.selected;
+                fg: root.fg2;
+                clicked(x, y) => { root.context(x, y); }
+            }
+        }
+    }
+}
+
+export component FileList inherits Rectangle {
+    in property <[FileItem]> items;
+    in property <string> sort-key;
+    in property <bool> sort-asc;
+    callback press(int, bool, bool);
+    callback open(int);
+    callback context(int, length, length);
+
+    property <length> row-h: 48px;
+    // Columns drop away as the view narrows so names always stay readable.
+    // Set from a change handler: binding them to width would loop through the layout.
+    property <length> col-date;
+    property <length> col-size;
+    property <length> col-kind;
+    function fit-columns() {
+        root.col-date = root.width > 900px ? 180px : root.width > 540px ? 140px : 0;
+        root.col-size = root.width > 400px ? 90px : 0;
+        root.col-kind = root.width > 760px ? 150px : 0;
+    }
+    changed width => { root.fit-columns(); }
+    init => { root.fit-columns(); }
+
+    public function reveal(i: int) {
+        let top = i * row-h;
+        if top < -flick.content-y {
+            flick.content-y = -top;
+        } else if top + row-h > -flick.content-y + flick.height {
+            flick.content-y = -(top + row-h - flick.height);
+        }
+    }
+
+    public function scroll-top() {
+        flick.content-y = 0;
+    }
+
+    VerticalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        HorizontalLayout {
+            height: 48px;
+            padding-left: 8px;
+            padding-right: 40px;
+            HeaderCell {
+                horizontal-stretch: 1;
+                label: "Name";
+                key: "name";
+                sort-key: root.sort-key;
+                sort-asc: root.sort-asc;
+            }
+            HeaderCell {
+                width: root.col-date;
+                visible: root.col-date > 0;
+                label: "Date modified";
+                key: "modified";
+                sort-key: root.sort-key;
+                sort-asc: root.sort-asc;
+            }
+            HeaderCell {
+                width: root.col-size;
+                visible: root.col-size > 0;
+                label: "Size";
+                key: "size";
+                right: true;
+                sort-key: root.sort-key;
+                sort-asc: root.sort-asc;
+            }
+            Rectangle { width: root.col-kind > 0 ? 24px : 0; }
+            HeaderCell {
+                width: root.col-kind;
+                visible: root.col-kind > 0;
+                label: "Kind";
+                key: "kind";
+                sort-key: root.sort-key;
+                sort-asc: root.sort-asc;
+            }
+        }
+        Rectangle {
+            height: 1px;
+            background: Pal.outline-variant;
+        }
+        flick := Flickable {
+            vertical-stretch: 1;
+            content-height: max(root.items.length * root.row-h + 16px, self.height);
+
+            TouchArea {
+                pointer-event(e) => {
+                    if e.kind == PointerEventKind.down {
+                        if e.button == PointerEventButton.left {
+                            root.press(-1, e.modifiers.control, e.modifiers.shift);
+                        } else if e.button == PointerEventButton.right {
+                            root.context(-1, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                        }
+                    }
+                }
+            }
+
+            for it[i] in root.items: Rectangle {
+                y: 6px + i * root.row-h;
+                height: root.row-h;
+                property <bool> near: self.y + self.height > -flick.content-y - 200px && self.y < -flick.content-y + flick.height + 200px;
+                if near: ListRow {
+                    item: it;
+                    odd: Math.mod(i, 2) == 1;
+                    col-date: root.col-date;
+                    col-size: root.col-size;
+                    col-kind: root.col-kind;
+                    press(c, s) => { root.press(i, c, s); }
+                    context(x, y) => { root.context(i, x, y); }
+                    open => { root.open(i); }
+                }
+            }
+        }
+    }
+}

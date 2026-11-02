@@ -1,0 +1,506 @@
+// Material 3 building blocks styled after Google Drive.
+
+import { Pal, Motion, Sym } from "theme.slint";
+
+export struct MenuEntry {
+    id: string,
+    label: string,
+    icon: string,
+    // 0 = item, 1 = divider, 2 = colour swatches, 3 = section label
+    kind: int,
+    enabled: bool,
+    danger: bool,
+    hint: string,
+}
+
+export component Icon inherits Text {
+    in property <bool> fill;
+    in property <length> size: 20px;
+    font-family: fill ? "Files Symbols Fill" : "Files Symbols";
+    font-size: size;
+    width: size;
+    min-height: size;
+    horizontal-alignment: center;
+    vertical-alignment: center;
+    color: Pal.on-surface-variant;
+}
+
+// Hover tint + a ripple that grows from the press point, like Drive.
+export component StateLayer inherits Rectangle {
+    in property <bool> hover;
+    in property <bool> pressed;
+    in property <length> press-x;
+    in property <length> press-y;
+    in property <color> tint: Pal.on-surface;
+    in property <float> hover-alpha: 0.08;
+    clip: true;
+    background: tint.with-alpha(hover ? hover-alpha : 0);
+    animate background { duration: Motion.short; }
+
+    ripple := Rectangle {
+        property <length> size: 0;
+        x: root.press-x - self.size / 2;
+        y: root.press-y - self.size / 2;
+        width: self.size;
+        height: self.size;
+        border-radius: self.size / 2;
+        background: root.tint;
+        opacity: 0;
+    }
+
+    states [
+        down when root.pressed: {
+            ripple.size: max(root.width, root.height) * 2.4;
+            ripple.opacity: 0.12;
+            in {
+                animate ripple.size { duration: 500ms; easing: cubic-bezier(0.2, 0, 0, 1); }
+                animate ripple.opacity { duration: 60ms; }
+            }
+            out {
+                animate ripple.opacity { duration: 400ms; }
+                animate ripple.size { delay: 400ms; duration: 0ms; }
+            }
+        }
+    ]
+}
+
+export component IconButton inherits Rectangle {
+    in property <string> icon;
+    in property <bool> enabled: true;
+    in property <bool> active;
+    in property <length> size: 40px;
+    in property <length> icon-size: 24px;
+    in property <color> fg: Pal.on-surface-variant;
+    callback clicked;
+    width: size;
+    height: size;
+    border-radius: size / 2;
+    background: active ? Pal.secondary-container : transparent;
+    animate background { duration: Motion.short; }
+
+    StateLayer {
+        border-radius: root.border-radius;
+        hover: ta.has-hover && root.enabled;
+        pressed: ta.pressed && root.enabled;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+    }
+
+    Icon {
+        text: root.icon;
+        size: root.icon-size;
+        fill: root.active;
+        color: root.active ? Pal.on-secondary-container : root.fg;
+        opacity: root.enabled ? 1 : 0.38;
+    }
+
+    ta := TouchArea {
+        enabled: root.enabled;
+                clicked => { root.clicked(); }
+    }
+}
+
+// Drive's "+ New": an elevated, softly rounded FAB-like button that lifts on hover.
+export component NewButton inherits Rectangle {
+    callback clicked;
+    height: 56px;
+    border-radius: 16px;
+    // Lifted off the chrome by tone alone: lighter in dark mode, white in light mode.
+    background: Pal.dark ? Pal.surface-container-highest : Pal.surface-container-lowest;
+    border-width: Pal.dark ? 0 : 1px;
+    border-color: Pal.outline-variant;
+
+    StateLayer {
+        border-radius: root.border-radius;
+        hover: ta.has-hover;
+        pressed: ta.pressed;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 20px;
+        spacing: 12px;
+        alignment: start;
+        Icon {
+            text: Sym.add;
+            size: 24px;
+            color: Pal.on-surface;
+        }
+        Text {
+            text: "New";
+            vertical-alignment: center;
+            font-size: 14px;
+            font-weight: 500;
+            color: Pal.on-surface;
+        }
+    }
+
+    ta := TouchArea {
+                clicked => { root.clicked(); }
+    }
+}
+
+// One half of Drive's view toggle: 56x32, check + icon when selected, icon alone otherwise.
+export component Segment inherits Rectangle {
+    in property <string> icon;
+    in property <bool> selected;
+    callback clicked;
+    width: 56px;
+    height: 32px;
+    background: selected ? Pal.secondary-container : transparent;
+    animate background { duration: Motion.short; }
+
+    StateLayer {
+        hover: ta.has-hover;
+        pressed: ta.pressed;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+        tint: root.selected ? Pal.on-secondary-container : Pal.on-surface;
+    }
+
+    HorizontalLayout {
+        alignment: center;
+        if root.selected: Icon {
+            text: Sym.check;
+            size: 18px;
+            color: Pal.on-secondary-container;
+        }
+        Icon {
+            text: root.icon;
+            size: 18px;
+            color: root.selected ? Pal.on-secondary-container : Pal.on-surface-variant;
+        }
+    }
+
+    ta := TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+// Pill button with icon + label that stays tinted while toggled on (Details).
+export component ToggleButton inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <bool> checked;
+    callback clicked;
+    height: 32px;
+    border-radius: 16px;
+    border-width: checked ? 0 : 1px;
+    border-color: Pal.outline;
+    background: checked ? Pal.secondary-container : transparent;
+    animate background { duration: Motion.short; }
+
+    StateLayer {
+        border-radius: root.border-radius;
+        hover: ta.has-hover;
+        pressed: ta.pressed;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+        tint: root.checked ? Pal.on-secondary-container : Pal.on-surface;
+    }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 16px;
+        spacing: 6px;
+        Icon {
+            text: root.icon;
+            size: 18px;
+            fill: root.checked;
+            color: root.checked ? Pal.on-secondary-container : Pal.on-surface-variant;
+        }
+        if root.label != "": Text {
+            text: root.label;
+            vertical-alignment: center;
+            font-size: 14px;
+            font-weight: 500;
+            color: root.checked ? Pal.on-secondary-container : Pal.on-surface;
+        }
+    }
+
+    ta := TouchArea {
+                clicked => { root.clicked(); }
+    }
+}
+
+// Drive filter chip: outlined, square-ish corners, optional trailing dropdown arrow.
+export component Chip inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <string> trailing;
+    in property <bool> selected;
+    callback clicked(length, length);
+    height: 32px;
+    border-radius: 8px;
+    border-width: selected ? 0 : 1px;
+    border-color: Pal.outline;
+    background: selected ? Pal.secondary-container : transparent;
+    animate background { duration: Motion.short; }
+
+    StateLayer {
+        border-radius: root.border-radius;
+        hover: ta.has-hover;
+        pressed: ta.pressed;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+    }
+
+    HorizontalLayout {
+        padding-left: root.icon == "" && !root.selected ? 16px : 8px;
+        padding-right: root.trailing == "" ? 16px : 8px;
+        spacing: 8px;
+        if root.selected || root.icon != "": Icon {
+            text: root.selected ? Sym.check : root.icon;
+            size: 18px;
+            color: root.selected ? Pal.on-secondary-container : Pal.on-surface-variant;
+        }
+        Text {
+            text: root.label;
+            vertical-alignment: center;
+            font-size: 14px;
+            font-weight: 500;
+            color: root.selected ? Pal.on-secondary-container : Pal.on-surface;
+        }
+        if root.trailing != "": Icon {
+            text: root.trailing;
+            size: 20px;
+            color: Pal.on-surface;
+        }
+    }
+
+    ta := TouchArea {
+                clicked => { root.clicked(root.absolute-position.x, root.absolute-position.y + root.height + 4px); }
+    }
+}
+
+// Text button used in dialogs and the snackbar.
+export component TextButton inherits Rectangle {
+    in property <string> label;
+    in property <color> fg: Pal.primary;
+    in property <bool> filled;
+    callback clicked;
+    height: 40px;
+    min-width: 64px;
+    border-radius: 20px;
+    background: filled ? Pal.primary : transparent;
+
+    StateLayer {
+        border-radius: root.border-radius;
+        hover: ta.has-hover;
+        pressed: ta.pressed;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+        tint: root.filled ? Pal.on-primary : root.fg;
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        Text {
+            text: root.label;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            font-size: 14px;
+            font-weight: 500;
+            color: root.filled ? Pal.on-primary : root.fg;
+        }
+    }
+
+    ta := TouchArea {
+                clicked => { root.clicked(); }
+    }
+}
+
+component MenuRow inherits Rectangle {
+    in property <MenuEntry> entry;
+    callback activated;
+    height: 36px;
+
+    StateLayer {
+        hover: ta.has-hover && root.entry.enabled;
+        pressed: ta.pressed && root.entry.enabled;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+    }
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 16px;
+        spacing: 14px;
+        opacity: root.entry.enabled ? 1 : 0.38;
+        Icon {
+            text: root.entry.icon;
+            color: root.entry.danger ? Pal.error : Pal.on-surface-variant;
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: root.entry.label;
+            vertical-alignment: center;
+            font-size: 14px;
+            color: root.entry.danger ? Pal.error : Pal.on-surface;
+        }
+        if root.entry.hint != "": Text {
+            text: root.entry.hint;
+            vertical-alignment: center;
+            font-size: 12px;
+            color: Pal.on-surface-variant;
+        }
+    }
+
+    ta := TouchArea {
+        enabled: root.entry.enabled;
+        clicked => { root.activated(); }
+    }
+}
+
+component Swatch inherits Rectangle {
+    in property <color> swatch;
+    in property <bool> current;
+    in property <length> size: 26px;
+    callback clicked;
+    width: size;
+    height: size;
+    border-radius: size / 2;
+    background: swatch;
+    border-width: current ? 2px : 0;
+    border-color: Pal.on-surface;
+    transform-scale: ta.has-hover ? 1.1 : 1;
+    animate transform-scale { duration: Motion.short; easing: ease-out; }
+    if current: Icon {
+        text: Sym.check;
+        size: 16px;
+        color: Pal.dark ? #000000cc : #ffffffee;
+    }
+    ta := TouchArea {
+                clicked => { root.clicked(); }
+    }
+}
+
+// Colour picker row: a small fixed palette, like Finder's tags.
+export component SwatchRow inherits HorizontalLayout {
+    in property <[color]> swatches;
+    in property <int> current;
+    in property <length> size: 26px;
+    callback picked(int);
+    spacing: root.size / 4;
+    alignment: start;
+    for c[i] in root.swatches: Swatch {
+        size: root.size;
+        swatch: c;
+        current: i == root.current;
+        clicked => { root.picked(i); }
+    }
+}
+
+// Menu surface. Pops open with a springy vertical scale from its top edge.
+export component MenuList inherits Rectangle {
+    in property <[MenuEntry]> entries;
+    in property <[color]> swatches;
+    in property <int> current-swatch;
+    callback activated(string);
+    property <bool> shown;
+    width: 300px;
+    border-radius: 8px;
+    background: Pal.surface-container;
+    drop-shadow-color: #00000066;
+    drop-shadow-blur: 14px;
+    drop-shadow-offset-y: 4px;
+    opacity: shown ? 1 : 0;
+    animate opacity { duration: 90ms; }
+
+    Timer {
+        interval: 1ms;
+        running: !root.shown;
+        triggered => { root.shown = true; }
+    }
+
+    VerticalLayout {
+        padding-top: 8px;
+        padding-bottom: 8px;
+        for e in root.entries: Rectangle {
+            height: e.kind == 1 ? 17px : e.kind == 2 ? 46px : e.kind == 3 ? 32px : 36px;
+            if e.kind == 3: Text {
+                x: 16px;
+                text: e.label;
+                vertical-alignment: center;
+                font-size: 12px;
+                font-weight: 500;
+                color: Pal.on-surface-variant;
+            }
+            if e.kind == 0: MenuRow {
+                entry: e;
+                activated => { root.activated(e.id); }
+            }
+            if e.kind == 1: Rectangle {
+                y: 8px;
+                height: 1px;
+                background: Pal.outline-variant;
+            }
+            if e.kind == 2: HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                spacing: 12px;
+                Icon {
+                    text: Sym.palette;
+                }
+                SwatchRow {
+                    padding-top: 10px;
+                    padding-bottom: 10px;
+                    size: 22px;
+                    swatches: root.swatches;
+                    current: root.current-swatch;
+                    picked(i) => { root.activated("color:" + i); }
+                }
+            }
+        }
+    }
+}
+
+// M3 snackbar (inverse surface), slides up from the bottom with a bounce.
+export component Snackbar inherits Rectangle {
+    in property <string> message;
+    in property <string> action;
+    in property <bool> shown;
+    callback act;
+    callback dismiss;
+    height: 48px;
+    border-radius: 8px;
+    background: Pal.inverse-surface;
+    drop-shadow-color: #00000066;
+    drop-shadow-blur: 10px;
+    drop-shadow-offset-y: 3px;
+    opacity: shown ? 1 : 0;
+    animate opacity { duration: Motion.short; }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 6px;
+        spacing: 8px;
+        Text {
+            text: root.message;
+            vertical-alignment: center;
+            font-size: 14px;
+            color: Pal.inverse-on-surface;
+        }
+        if root.action != "": VerticalLayout {
+            alignment: center;
+            TextButton {
+                label: root.action;
+                fg: Pal.inverse-primary;
+                clicked => { root.act(); }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Sym.close;
+                size: 36px;
+                icon-size: 18px;
+                fg: Pal.inverse-on-surface;
+                clicked => { root.dismiss(); }
+            }
+        }
+    }
+}

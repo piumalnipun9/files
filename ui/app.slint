@@ -1,0 +1,854 @@
+import { Pal, Motion, Sym } from "theme.slint";
+import { Icon, StateLayer, IconButton, Segment, ToggleButton, Chip, TextButton, MenuList, MenuEntry, Snackbar, SwatchRow } from "widgets.slint";
+import { Sidebar, SideRow } from "sidebar.slint";
+import { FileGrid, FileList, FileItem, FolderGlyph, ItemIcon } from "files.slint";
+
+export { Pal, SideRow, FileItem, MenuEntry }
+
+export struct Crumb {
+    label: string,
+    index: int,
+}
+
+export struct Details {
+    item: FileItem,
+    location: string,
+    contents: string,
+    multiple: bool,
+    color-index: int,
+    can-color: bool,
+}
+
+component CrumbButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> last;
+    callback clicked(length, length);
+    height: 40px;
+    border-radius: 20px;
+    StateLayer {
+        border-radius: root.border-radius;
+        hover: ta.has-hover;
+        pressed: ta.pressed;
+        press-x: ta.pressed-x;
+        press-y: ta.pressed-y;
+    }
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: root.last ? 8px : 16px;
+        spacing: 2px;
+        Text {
+            text: root.label;
+            vertical-alignment: center;
+            font-size: 24px;
+            color: root.last ? Pal.on-surface : Pal.on-surface-variant;
+        }
+        if root.last: Icon {
+            text: Sym.arrow-drop-down;
+            size: 24px;
+            color: Pal.on-surface;
+        }
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(root.absolute-position.x, root.absolute-position.y + root.height + 4px); }
+    }
+}
+
+component SearchBar inherits Rectangle {
+    in-out property <string> text <=> input.text;
+    in property <string> placeholder;
+    callback edited(string);
+    callback escape;
+    public function focus-input() {
+        input.focus();
+    }
+    height: 48px;
+    border-radius: 24px;
+    property <bool> focused: input.has-focus;
+    background: focused ? Pal.card : Pal.surface-container-high;
+    animate background { duration: Motion.short; }
+
+    StateLayer {
+        border-radius: root.border-radius;
+        hover: hover-ta.has-hover && !root.focused;
+        pressed: false;
+    }
+    hover-ta := TouchArea {
+        mouse-cursor: MouseCursor.text;
+        clicked => { input.focus(); }
+    }
+    HorizontalLayout {
+        padding-left: 4px;
+        padding-right: 4px;
+        spacing: 8px;
+        VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Sym.search;
+                fg: Pal.on-surface;
+                clicked => { input.focus(); }
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            Text {
+                x: 0;
+                width: parent.width;
+                text: root.placeholder;
+                visible: input.text == "";
+                vertical-alignment: center;
+                font-size: 16px;
+                color: Pal.on-surface-variant;
+            }
+            input := TextInput {
+                x: 0;
+                width: parent.width;
+                vertical-alignment: center;
+                font-size: 16px;
+                color: Pal.on-surface;
+                selection-background-color: Pal.primary.with-alpha(0.4);
+                selection-foreground-color: Pal.on-surface;
+                edited => { root.edited(self.text); }
+                key-pressed(e) => {
+                    if e.text == Key.Escape {
+                        root.escape();
+                        return accept;
+                    }
+                    return reject;
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Sym.close;
+                opacity: input.text != "" ? 1 : 0;
+                enabled: input.text != "";
+                animate opacity { duration: Motion.short; }
+                clicked => {
+                    input.text = "";
+                    root.edited("");
+                }
+            }
+        }
+    }
+}
+
+component DetailRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    visible: value != "";
+    VerticalLayout {
+    spacing: 2px;
+    Text {
+        text: root.label;
+        font-size: 12px;
+        font-weight: 500;
+        color: Pal.on-surface-variant;
+    }
+    Text {
+        text: root.value;
+        font-size: 14px;
+        wrap: word-wrap;
+        color: Pal.on-surface;
+    }
+    }
+}
+
+component DetailsPanel inherits Rectangle {
+    in property <Details> info;
+    in property <[color]> swatches;
+    callback close;
+    callback color-picked(int);
+    VerticalLayout {
+        padding: 16px;
+        padding-top: 12px;
+        spacing: 16px;
+        alignment: start;
+        HorizontalLayout {
+            spacing: 12px;
+            VerticalLayout {
+                alignment: center;
+                ItemIcon {
+                    item: root.info.item;
+                    size: 24px;
+                }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.info.item.name;
+                vertical-alignment: center;
+                wrap: word-wrap;
+                font-size: 18px;
+                color: Pal.on-surface;
+            }
+            VerticalLayout {
+                alignment: center;
+                IconButton {
+                    icon: Sym.close;
+                    clicked => { root.close(); }
+                }
+            }
+        }
+        Rectangle {
+            height: 190px;
+            border-radius: 16px;
+            clip: true;
+            background: Pal.surface-container;
+            if root.info.item.has-thumb: Image {
+                width: parent.width;
+                height: parent.height;
+                source: root.info.item.thumb;
+                image-fit: contain;
+            }
+            if !root.info.item.has-thumb && root.info.item.is-dir: FolderGlyph {
+                size: 96px;
+                tint: root.info.item.tint;
+                emblem: root.info.item.emblem;
+            }
+            if !root.info.item.has-thumb && !root.info.item.is-dir: Icon {
+                text: root.info.item.icon;
+                fill: true;
+                size: 88px;
+                color: root.info.item.tint;
+            }
+        }
+        if root.info.can-color: VerticalLayout {
+            spacing: 10px;
+            Text {
+                text: "Folder colour";
+                font-size: 14px;
+                font-weight: 500;
+                color: Pal.on-surface;
+            }
+            SwatchRow {
+                swatches: root.swatches;
+                current: root.info.color-index;
+                picked(i) => { root.color-picked(i); }
+            }
+        }
+        Text {
+            text: root.info.multiple ? "Selection" : "File details";
+            font-size: 14px;
+            font-weight: 500;
+            color: Pal.on-surface;
+        }
+        DetailRow {
+            label: "Type";
+            value: root.info.item.kind;
+        }
+        DetailRow {
+            label: root.info.item.is-dir ? "Contents" : "Size";
+            value: root.info.item.is-dir ? root.info.contents : root.info.item.size;
+        }
+        DetailRow {
+            label: "Modified";
+            value: root.info.item.modified;
+        }
+        DetailRow {
+            label: "Location";
+            value: root.info.location;
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "Files — " + root.title-text;
+    preferred-width: 1240px;
+    preferred-height: 780px;
+    min-width: 720px;
+    min-height: 480px;
+    background: Pal.chrome;
+    default-font-family: "Google Sans";
+    default-font-size: 14px;
+
+    // Sidebar
+    in property <[SideRow]> side-rows;
+    in property <string> side-key;
+    in property <bool> side-visible;
+    in property <string> storage-text;
+    in property <float> storage-fraction;
+
+    // Location
+    in property <string> title-text;
+    in property <[Crumb]> crumbs;
+    in property <bool> can-back;
+    in property <bool> can-forward;
+    in property <bool> can-up;
+    in property <bool> in-trash;
+    in property <string> search-placeholder: "Search in folder";
+    in-out property <string> search-text;
+
+    // Content
+    in property <[FileItem]> items;
+    in property <int> folder-count;
+    in property <int> view-mode;
+    in property <bool> details-open;
+    in property <Details> details;
+    in property <string> sort-key: "name";
+    in property <bool> sort-asc: true;
+    in property <string> sort-label: "Name";
+    in property <bool> show-hidden;
+    // UI experiments toggled from Settings.
+    in property <bool> ui-filled-icons;
+    in property <bool> ui-folder-glyphs;
+    in property <bool> ui-tiles;
+    in property <int> selection-count;
+    in property <bool> single-selection;
+    in property <string> empty-title;
+    in property <string> empty-body;
+    out property <int> grid-cols: grid.cols;
+    in property <[color]> swatches;
+
+    // Menu / snackbar / dialog
+    in property <[MenuEntry]> menu-entries;
+    in property <length> menu-height;
+    in property <int> menu-swatch;
+    in property <string> snack-text;
+    in property <string> snack-action;
+    in property <bool> snack-shown;
+    in-out property <string> dialog-text;
+    in property <string> dialog-title;
+    in property <string> dialog-ok;
+    in property <bool> dialog-shown;
+    property <length> menu-x;
+    // Narrow content area: segmented buttons fall back to icons only.
+    property <bool> compact;
+    function update-compact() {
+        root.compact = root.width - 272px - (root.details-open ? 340px : 0) < 600px;
+    }
+    changed width => { root.update-compact(); }
+    changed details-open => { root.update-compact(); }
+    init => { root.update-compact(); }
+    property <length> menu-y;
+
+    callback side-activate(string);
+    callback side-toggle(string);
+    callback side-context(string, length, length);
+    callback new-menu(length, length);
+    callback back();
+    callback forward();
+    callback up();
+    callback crumb(int, length, length);
+    callback search-edited(string);
+    callback search-escape();
+    callback set-view(int);
+    callback toggle-details();
+    callback sort-menu(length, length);
+    callback toggle-hidden();
+    callback press(int, bool, bool);
+    callback open(int);
+    callback context(int, length, length);
+    callback menu-action(string);
+    callback snack-act();
+    callback snack-dismiss();
+    callback dialog-accept(string);
+    callback dialog-cancel();
+    callback details-color(int);
+    callback empty-trash();
+    callback settings-menu(length, length);
+    callback key(string, bool, bool, bool) -> bool;
+
+    public function show-menu(x: length, y: length) {
+        root.menu-x = x;
+        root.menu-y = y;
+        menu.show();
+    }
+
+    public function reveal(i: int) {
+        if root.view-mode == 0 {
+            grid.reveal(i);
+        } else {
+            list.reveal(i);
+        }
+    }
+
+    public function scroll-top() {
+        grid.scroll-top();
+        list.scroll-top();
+    }
+
+    public function focus-search() {
+        search.focus-input();
+    }
+
+    public function focus-main() {
+        keys.focus();
+    }
+
+    public function open-dialog(select-to: int) {
+        dialog-input.focus();
+        dialog-input.set-selection-offsets(0, select-to);
+    }
+
+    keys := FocusScope {
+        key-pressed(e) => {
+            let k = e.text == Key.UpArrow ? "Up" : e.text == Key.DownArrow ? "Down" : e.text == Key.LeftArrow ? "Left"
+                : e.text == Key.RightArrow ? "Right" : e.text == Key.Return ? "Return" : e.text == Key.Delete ? "Delete"
+                : e.text == Key.Backspace ? "Backspace" : e.text == Key.Escape ? "Escape" : e.text == Key.F2 ? "F2"
+                : e.text == Key.F5 ? "F5" : e.text == Key.Home ? "Home" : e.text == Key.End ? "End" : e.text;
+            return root.key(k, e.modifiers.control, e.modifiers.shift, e.modifiers.alt) ? accept : reject;
+        }
+
+        VerticalLayout {
+            // Top bar, as in Drive: 256px brand column, 720px search, actions on the right.
+            HorizontalLayout {
+                height: 64px;
+                padding-right: 12px;
+                HorizontalLayout {
+                    width: 256px;
+                    padding-left: 24px;
+                    Text {
+                        text: "Files";
+                        vertical-alignment: center;
+                        font-size: 22px;
+                        color: Pal.on-surface;
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    max-width: 720px;
+                    search := SearchBar {
+                        text <=> root.search-text;
+                        placeholder: root.search-placeholder;
+                        edited(t) => { root.search-edited(t); }
+                        escape => { root.search-escape(); }
+                    }
+                }
+                Rectangle { horizontal-stretch: 0.0001; min-width: 16px; }
+                HorizontalLayout {
+                    spacing: 4px;
+                    VerticalLayout {
+                        alignment: center;
+                        IconButton {
+                            icon: Sym.settings;
+                            fg: Pal.on-surface;
+                            clicked => { root.settings-menu(self.absolute-position.x - 260px, self.absolute-position.y + self.height + 4px); }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                Sidebar {
+                    width: 256px;
+                    rows: root.side-rows;
+                    selected-key: root.side-key;
+                    selection-visible: root.side-visible;
+                    all-filled: root.ui-filled-icons;
+                    folder-glyphs: root.ui-folder-glyphs;
+                    storage-text: root.storage-text;
+                    storage-fraction: root.storage-fraction;
+                    activate(k) => { root.side-activate(k); keys.focus(); }
+                    toggle(k) => { root.side-toggle(k); }
+                    context(k, x, y) => { root.side-context(k, x, y); }
+                    new-clicked(x, y) => { root.new-menu(x, y); }
+                }
+
+                VerticalLayout {
+                    padding-right: 16px;
+                    padding-bottom: 16px;
+
+                // Main card
+                Rectangle {
+                    vertical-stretch: 1;
+                    border-radius: 16px;
+                    background: Pal.card;
+                    clip: true;
+
+                    HorizontalLayout {
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+
+                            // Title row: breadcrumbs left, view controls right.
+                            HorizontalLayout {
+                                height: 64px;
+                                padding-top: 8px;
+                                padding-left: 4px;
+                                padding-right: 16px;
+                                spacing: 0px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    IconButton {
+                                        icon: Sym.arrow-back;
+                                        enabled: root.can-back;
+                                        clicked => { root.back(); }
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    IconButton {
+                                        icon: Sym.arrow-forward;
+                                        enabled: root.can-forward;
+                                        clicked => { root.forward(); }
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    IconButton {
+                                        icon: Sym.arrow-upward;
+                                        enabled: root.can-up;
+                                        clicked => { root.up(); }
+                                    }
+                                }
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    min-width: min(crumb-row.preferred-width, 160px);
+                                    clip: true;
+                                    crumb-row := HorizontalLayout {
+                                        // Keep the current folder visible when the trail is too long.
+                                        x: min(0, parent.width - self.preferred-width);
+                                        width: self.preferred-width;
+                                        spacing: 2px;
+                                        for c[i] in root.crumbs: HorizontalLayout {
+                                            spacing: 2px;
+                                            if i > 0: Icon {
+                                                text: Sym.chevron-right;
+                                                size: 24px;
+                                            }
+                                            VerticalLayout {
+                                                alignment: center;
+                                                CrumbButton {
+                                                    label: c.label;
+                                                    last: i == root.crumbs.length - 1;
+                                                    clicked(x, y) => { root.crumb(c.index, x, y); }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Rectangle {
+                                        x: 0;
+                                        width: 32px;
+                                        visible: crumb-row.x < 0;
+                                        background: @linear-gradient(90deg, Pal.card 0%, Pal.card.with-alpha(0) 100%);
+                                    }
+                                }
+                                Rectangle { width: 8px; }
+                                VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    height: 32px;
+                                    border-radius: 16px;
+                                    border-width: 1px;
+                                    border-color: Pal.outline;
+                                    clip: true;
+                                    HorizontalLayout {
+                                        Segment {
+                                            icon: Sym.lines;
+                                            selected: root.view-mode == 1;
+                                            clicked => { root.set-view(1); }
+                                        }
+                                        Rectangle {
+                                            width: 1px;
+                                            background: Pal.outline;
+                                        }
+                                        Segment {
+                                            icon: Sym.grid;
+                                            selected: root.view-mode == 0;
+                                            clicked => { root.set-view(0); }
+                                        }
+                                    }
+                                }
+                                }
+                                Rectangle { width: 12px; }
+                                VerticalLayout {
+                                    alignment: center;
+                                    ToggleButton {
+                                        icon: Sym.lightbulb;
+                                        label: root.compact ? "" : "Details";
+                                        checked: root.details-open;
+                                        clicked => { root.toggle-details(); }
+                                    }
+                                }
+                            }
+
+                            // Chips row; swaps to Drive's selection bar while items are selected.
+                            Rectangle {
+                                height: 48px;
+                                chips := Rectangle {
+                                    opacity: root.selection-count > 0 ? 0 : 1;
+                                    visible: self.opacity > 0;
+                                    animate opacity { duration: Motion.short; }
+                                    HorizontalLayout {
+                                    padding-left: 20px;
+                                    spacing: 8px;
+                                    alignment: start;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Chip {
+                                            label: root.sort-label;
+                                            trailing: Sym.arrow-drop-down;
+                                            clicked(x, y) => { root.sort-menu(x, y); }
+                                        }
+                                    }
+                                    if root.in-trash: VerticalLayout {
+                                        alignment: center;
+                                        TextButton {
+                                            label: "Empty trash";
+                                            fg: Pal.error;
+                                            clicked => { root.empty-trash(); }
+                                        }
+                                    }
+                                    }
+                                }
+                                Rectangle {
+                                    x: 16px;
+                                    y: (parent.height - self.height) / 2;
+                                    width: parent.width - 32px;
+                                    height: 44px;
+                                    border-radius: 22px;
+                                    background: Pal.surface-container;
+                                    opacity: root.selection-count > 0 ? 1 : 0;
+                                    visible: self.opacity > 0;
+                                    animate opacity { duration: Motion.short; }
+                                    HorizontalLayout {
+                                        padding-left: 4px;
+                                        padding-right: 8px;
+                                        spacing: 2px;
+                                        alignment: start;
+                                        VerticalLayout {
+                                            alignment: center;
+                                            IconButton {
+                                                icon: Sym.close;
+                                                size: 36px;
+                                                icon-size: 20px;
+                                                clicked => { root.menu-action("deselect"); }
+                                            }
+                                        }
+                                        Text {
+                                            text: root.selection-count + " selected";
+                                            vertical-alignment: center;
+                                            font-size: 14px;
+                                            font-weight: 500;
+                                            color: Pal.on-surface;
+                                        }
+                                        Rectangle { width: 12px; }
+                                        if !root.in-trash: VerticalLayout {
+                                            alignment: center;
+                                            IconButton {
+                                                icon: Sym.cut;
+                                                size: 36px;
+                                                icon-size: 20px;
+                                                clicked => { root.menu-action("cut"); }
+                                            }
+                                        }
+                                        if !root.in-trash: VerticalLayout {
+                                            alignment: center;
+                                            IconButton {
+                                                icon: Sym.copy;
+                                                size: 36px;
+                                                icon-size: 20px;
+                                                clicked => { root.menu-action("copy"); }
+                                            }
+                                        }
+                                        if !root.in-trash && root.single-selection: VerticalLayout {
+                                            alignment: center;
+                                            IconButton {
+                                                icon: Sym.rename;
+                                                size: 36px;
+                                                icon-size: 20px;
+                                                clicked => { root.menu-action("rename"); }
+                                            }
+                                        }
+                                        if root.in-trash: VerticalLayout {
+                                            alignment: center;
+                                            IconButton {
+                                                icon: Sym.restore;
+                                                size: 36px;
+                                                icon-size: 20px;
+                                                clicked => { root.menu-action("restore"); }
+                                            }
+                                        }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            IconButton {
+                                                icon: root.in-trash ? Sym.delete-forever : Sym.delete;
+                                                size: 36px;
+                                                icon-size: 20px;
+                                                clicked => { root.menu-action(root.in-trash ? "purge" : "trash"); }
+                                            }
+                                        }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            IconButton {
+                                                icon: Sym.more-vert;
+                                                size: 36px;
+                                                icon-size: 20px;
+                                                clicked => { root.context(-2, self.absolute-position.x, self.absolute-position.y + self.height); }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Content, which springs up and fades in after each navigation.
+                            Rectangle {
+                                vertical-stretch: 1;
+                                clip: true;
+                                content := Rectangle {
+                                    grid := FileGrid {
+                                        visible: root.view-mode == 0;
+                                        items: root.view-mode == 0 ? root.items : [];
+                                        folder-count: root.folder-count;
+                                        uniform: root.ui-tiles;
+                                        press(i, c, s) => { keys.focus(); root.press(i, c, s); }
+                                        open(i) => { root.open(i); }
+                                        context(i, x, y) => { keys.focus(); root.context(i, x, y); }
+                                    }
+                                    list := FileList {
+                                        visible: root.view-mode == 1;
+                                        items: root.view-mode == 1 ? root.items : [];
+                                        sort-key: root.sort-key;
+                                        sort-asc: root.sort-asc;
+                                        press(i, c, s) => { keys.focus(); root.press(i, c, s); }
+                                        open(i) => { root.open(i); }
+                                        context(i, x, y) => { keys.focus(); root.context(i, x, y); }
+                                    }
+                                    if root.items.length == 0: VerticalLayout {
+                                        alignment: center;
+                                        spacing: 12px;
+                                        Text {
+                                            text: root.empty-title;
+                                            horizontal-alignment: center;
+                                            font-size: 16px;
+                                            color: Pal.on-surface;
+                                        }
+                                        Text {
+                                            text: root.empty-body;
+                                            horizontal-alignment: center;
+                                            font-size: 13px;
+                                            color: Pal.on-surface-variant;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Details panel slides in from the right.
+                        Rectangle {
+                            width: root.details-open ? 340px : 0;
+                            animate width { duration: Motion.medium; easing: cubic-bezier(0.2, 0, 0, 1); }
+                            clip: true;
+                            DetailsPanel {
+                                x: 0;
+                                width: 340px;
+                                info: root.details;
+                                swatches: root.swatches;
+                                close => { root.toggle-details(); }
+                                color-picked(i) => { root.details-color(i); }
+                            }
+                            Rectangle {
+                                x: 0;
+                                width: 1px;
+                                background: Pal.outline-variant;
+                            }
+                        }
+                    }
+                }
+                }
+            }
+        }
+    }
+
+    Snackbar {
+        x: 272px;
+        width: min(self.preferred-width, root.width - 290px);
+        y: root.height - self.height - 24px;
+        message: root.snack-text;
+        action: root.snack-action;
+        shown: root.snack-shown;
+        visible: self.opacity > 0;
+        act => { root.snack-act(); }
+        dismiss => { root.snack-dismiss(); }
+    }
+
+    // Dialog: scrim + M3 basic dialog with a text field.
+    Rectangle {
+        background: #000000.with-alpha(root.dialog-shown ? 0.4 : 0);
+        animate background { duration: Motion.medium; }
+        visible: root.dialog-shown;
+        TouchArea {
+            clicked => { root.dialog-cancel(); }
+        }
+        Rectangle {
+            width: 400px;
+            height: 220px;
+            border-radius: 28px;
+            background: Pal.surface-container-high;
+            TouchArea { }
+            VerticalLayout {
+                padding: 24px;
+                spacing: 20px;
+                Text {
+                    text: root.dialog-title;
+                    font-size: 22px;
+                    color: Pal.on-surface;
+                }
+                Rectangle {
+                    height: 56px;
+                    border-radius: 6px;
+                    border-width: dialog-input.has-focus ? 2px : 1px;
+                    border-color: dialog-input.has-focus ? Pal.primary : Pal.outline;
+                    dialog-input := TextInput {
+                        x: 16px;
+                        width: parent.width - 32px;
+                        text <=> root.dialog-text;
+                        vertical-alignment: center;
+                        font-size: 16px;
+                        color: Pal.on-surface;
+                        single-line: true;
+                        selection-background-color: Pal.primary.with-alpha(0.4);
+                        selection-foreground-color: Pal.on-surface;
+                        accepted => { root.dialog-accept(self.text); }
+                        key-pressed(e) => {
+                            if e.text == Key.Escape {
+                                root.dialog-cancel();
+                                return accept;
+                            }
+                            return reject;
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 8px;
+                    VerticalLayout {
+                        alignment: center;
+                        TextButton {
+                            label: "Cancel";
+                            clicked => { root.dialog-cancel(); }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        TextButton {
+                            label: root.dialog-ok;
+                            filled: true;
+                            clicked => { root.dialog-accept(root.dialog-text); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    menu := PopupWindow {
+        x: min(root.menu-x, root.width - 308px);
+        y: root.menu-y + root.menu-height > root.height - 8px ? max(8px, root.menu-y - root.menu-height) : root.menu-y;
+        close-policy: close-on-click-outside;
+        width: 300px;
+        height: root.menu-height;
+        MenuList {
+            x: 0;
+            y: 0;
+            entries: root.menu-entries;
+            swatches: root.swatches;
+            current-swatch: root.menu-swatch;
+            activated(id) => {
+                menu.close();
+                root.menu-action(id);
+            }
+        }
+    }
+}

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Files
+GenericName=File Manager
+Comment=A Material 3 file manager
+Exec=files %U
+Icon=files
+Terminal=false
+Categories=Utility;FileManager;System;
+MimeType=inode/directory;

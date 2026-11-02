@@ -1,0 +1,189 @@
+// Navigation drawer, measured off Google Drive: 256px wide, 32px rows, 224px pills,
+// expand arrow at x 18, icon at x 34, label at x 68 (+16px per tree level).
+
+import { Pal, Motion, Sym } from "theme.slint";
+import { Icon, StateLayer, NewButton } from "widgets.slint";
+import { FolderGlyph } from "files.slint";
+
+export struct SideRow {
+    // 0 = item, 1 = section header, 2 = group gap
+    kind: int,
+    key: string,
+    label: string,
+    icon: string,
+    // Glyph while the row is expanded (e.g. folder_open).
+    open-icon: string,
+    depth: int,
+    expandable: bool,
+    expanded: bool,
+    tint: color,
+    tinted: bool,
+    pinned: bool,
+    // A real folder (drawn as a folder glyph in the "match main view" experiment).
+    folder: bool,
+    emblem: string,
+    y: length,
+    height: length,
+}
+
+component NavRow inherits Rectangle {
+    in property <SideRow> data;
+    in property <bool> selected;
+    in property <bool> all-filled;
+    in property <bool> folder-glyphs;
+    callback activate;
+    callback toggle;
+    callback context(length, length);
+    property <length> indent: root.data.depth * 16px;
+    property <color> fg: root.selected ? Pal.on-secondary-container : Pal.on-surface;
+
+    Rectangle {
+        x: 16px;
+        width: parent.width - 32px;
+        border-radius: 16px;
+        background: root.selected ? Pal.secondary-container : transparent;
+        StateLayer {
+            border-radius: 16px;
+            hover: ta.has-hover || chev.has-hover;
+            pressed: ta.pressed;
+            press-x: ta.pressed-x;
+            press-y: ta.pressed-y;
+            tint: root.fg;
+        }
+    }
+
+    // Drive swaps the triangle rather than rotating it; same glyph size either way.
+    if root.data.expandable: Icon {
+        x: 16px + root.indent;
+        text: root.data.expanded ? Sym.arrow-drop-down : Sym.arrow-right;
+        size: 16px;
+        color: root.fg;
+    }
+    // Outlined when idle, filled when selected; folder_open while expanded.
+    property <color> icon-color: root.data.tinted ? root.data.tint : root.selected ? Pal.on-secondary-container : Pal.on-surface-variant;
+    if !(root.folder-glyphs && root.data.folder): Icon {
+        x: 34px + root.indent;
+        text: root.data.expanded && root.data.open-icon != "" ? root.data.open-icon : root.data.icon;
+        size: 20px;
+        fill: root.selected || root.all-filled;
+        color: root.icon-color;
+    }
+    if root.folder-glyphs && root.data.folder: FolderGlyph {
+        x: 34px + root.indent;
+        size: 20px;
+        tint: root.icon-color;
+        emblem: root.data.emblem;
+    }
+    Text {
+        x: 68px + root.indent;
+        width: parent.width - self.x - (root.data.pinned ? 44px : 24px);
+        text: root.data.label;
+        vertical-alignment: center;
+        overflow: elide;
+        font-size: 14px;
+        color: root.fg;
+    }
+    if root.data.pinned: Icon {
+        x: parent.width - 44px;
+        text: Sym.pin;
+        size: 16px;
+    }
+
+    ta := TouchArea {
+        x: 16px;
+        width: parent.width - 32px;
+        clicked => { root.activate(); }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                root.context(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            }
+        }
+    }
+
+    // The arrow toggles without navigating.
+    chev := TouchArea {
+        x: 16px + root.indent;
+        width: root.data.expandable ? 26px : 0;
+        clicked => { root.toggle(); }
+    }
+}
+
+export component Sidebar inherits Rectangle {
+    in property <[SideRow]> rows;
+    in property <string> selected-key;
+    in property <bool> selection-visible;
+    in property <bool> all-filled;
+    in property <bool> folder-glyphs;
+    in property <string> storage-text;
+    in property <float> storage-fraction;
+    callback activate(string);
+    callback toggle(string);
+    callback context(string, length, length);
+    callback new-clicked(length, length);
+
+    VerticalLayout {
+        padding-bottom: 16px;
+
+        HorizontalLayout {
+            padding-left: 16px;
+            padding-top: 8px;
+            padding-bottom: 16px;
+            alignment: start;
+            NewButton {
+                clicked => { root.new-clicked(self.absolute-position.x, self.absolute-position.y + self.height + 4px); }
+            }
+        }
+
+        Flickable {
+            vertical-stretch: 1;
+            content-height: root.rows.length > 0 ? root.rows[root.rows.length - 1].y + root.rows[root.rows.length - 1].height + 8px : 0;
+
+            for r in root.rows: Rectangle {
+                y: r.y;
+                height: r.height;
+                if r.kind == 0: NavRow {
+                    data: r;
+                    selected: r.key == root.selected-key && root.selection-visible;
+                    all-filled: root.all-filled;
+                    folder-glyphs: root.folder-glyphs;
+                    activate => { root.activate(r.key); }
+                    toggle => { root.toggle(r.key); }
+                    context(x, y) => { root.context(r.key, x, y); }
+                }
+                if r.kind == 1: Text {
+                    x: 34px;
+                    text: r.label;
+                    vertical-alignment: center;
+                    font-size: 14px;
+                    color: Pal.on-surface-variant;
+                }
+            }
+        }
+
+        // Storage meter, Drive-style: 4px track, usage text underneath.
+        VerticalLayout {
+            padding-left: 34px;
+            padding-right: 41px;
+            padding-top: 12px;
+            spacing: 10px;
+            Rectangle {
+                vertical-stretch: 0;
+                height: 4px;
+                border-radius: 2px;
+                background: Pal.surface-container-highest;
+                Rectangle {
+                    x: 0;
+                    width: max(4px, parent.width * root.storage-fraction);
+                    border-radius: 2px;
+                    background: root.storage-fraction > 0.9 ? Pal.error : Pal.primary;
+                }
+            }
+            Text {
+                vertical-stretch: 0;
+                text: root.storage-text;
+                font-size: 14px;
+                color: Pal.on-surface-variant;
+            }
+        }
+    }
+}

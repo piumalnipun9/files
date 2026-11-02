@@ -1,0 +1,101 @@
+// Colour roles, motion tokens and Material Symbols codepoints.
+
+import "../assets/files-symbols.ttf";
+import "../assets/files-symbols-fill.ttf";
+import "../assets/GoogleSans-Regular.ttf";
+import "../assets/GoogleSans-Medium.ttf";
+
+// Material 3 colour roles; Rust overwrites these from the DankMaterialShell / matugen palette.
+export global Pal {
+    in-out property <bool> dark: true;
+    in-out property <color> surface: #0b151a;
+    in-out property <color> surface-container-lowest: #060f14;
+    in-out property <color> surface-container-low: #131d22;
+    in-out property <color> surface-container: #182126;
+    in-out property <color> surface-container-high: #222b31;
+    in-out property <color> surface-container-highest: #2d363c;
+    in-out property <color> on-surface: #dae4ec;
+    in-out property <color> on-surface-variant: #bec8d0;
+    in-out property <color> primary: #7ad0ff;
+    in-out property <color> on-primary: #003549;
+    in-out property <color> primary-container: #004c69;
+    in-out property <color> on-primary-container: #c3e8ff;
+    in-out property <color> secondary-container: #314962;
+    in-out property <color> on-secondary-container: #d0e4ff;
+    in-out property <color> tertiary: #b4c5f8;
+    in-out property <color> outline: #889299;
+    in-out property <color> outline-variant: #3e484f;
+    in-out property <color> error: #ffb4ab;
+    in-out property <color> inverse-surface: #dae4ec;
+    in-out property <color> inverse-on-surface: #283238;
+    in-out property <color> inverse-primary: #00668a;
+
+    // Drive-style chrome: the window is the "low" surface, content sits on a card.
+    out property <color> chrome: surface-container-low;
+    out property <color> card: surface-container-lowest;
+}
+
+// M3 Expressive motion: springy spatial curves (they overshoot) and calm effect curves.
+export global Motion {
+    out property <duration> short: 150ms;
+    out property <duration> medium: 280ms;
+    out property <duration> long: 450ms;
+    out property <duration> spring: 550ms;
+}
+
+export global Sym {
+    out property <string> home: "\u{e88a}";
+    out property <string> folder: "\u{e2c7}";
+    out property <string> folder-open: "\u{e2c8}";
+    out property <string> desktop: "\u{e30c}";
+    out property <string> download: "\u{e171}";
+    out property <string> description: "\u{e873}";
+    out property <string> image: "\u{e251}";
+    out property <string> music: "\u{e3a1}";
+    out property <string> movie: "\u{e02c}";
+    out property <string> public: "\u{e80b}";
+    out property <string> draft: "\u{e06f}";
+    out property <string> schedule: "\u{e192}";
+    out property <string> delete: "\u{e872}";
+    out property <string> hard-drive: "\u{f80e}";
+    out property <string> chevron-right: "\u{e409}";
+    out property <string> expand-more: "\u{e5cf}";
+    out property <string> arrow-back: "\u{e5c4}";
+    out property <string> arrow-forward: "\u{e5c8}";
+    out property <string> arrow-upward: "\u{e5d8}";
+    out property <string> arrow-downward: "\u{e5db}";
+    out property <string> search: "\u{e8b6}";
+    out property <string> close: "\u{e14c}";
+    out property <string> add: "\u{e145}";
+    out property <string> new-folder: "\u{e2cc}";
+    out property <string> note-add: "\u{e89c}";
+    out property <string> grid: "\u{e9b0}";
+    out property <string> lines: "\u{e5d2}";
+    out property <string> lightbulb: "\u{e0f0}";
+    out property <string> info: "\u{e88e}";
+    out property <string> check: "\u{e5ca}";
+    out property <string> more-vert: "\u{e5d4}";
+    out property <string> cut: "\u{e14e}";
+    out property <string> copy: "\u{e14d}";
+    out property <string> paste: "\u{e14f}";
+    out property <string> rename: "\u{e9a2}";
+    out property <string> delete-forever: "\u{e92b}";
+    out property <string> restore: "\u{e938}";
+    out property <string> open: "\u{e895}";
+    out property <string> palette: "\u{e3b7}";
+    out property <string> pin: "\u{e6aa}";
+    out property <string> unpin: "\u{e017}";
+    out property <string> visibility: "\u{e417}";
+    out property <string> visibility-off: "\u{e8f5}";
+    out property <string> refresh: "\u{e5d5}";
+    out property <string> sort: "\u{e164}";
+    out property <string> terminal: "\u{eb8e}";
+    out property <string> usb: "\u{e1e0}";
+    out property <string> select-all: "\u{e162}";
+    out property <string> undo: "\u{e166}";
+    out property <string> swap-vert: "\u{e0c3}";
+    out property <string> arrow-right: "\u{e5df}";
+    out property <string> arrow-drop-down: "\u{e5c5}";
+    out property <string> settings: "\u{e8b8}";
+    out property <string> view-list: "\u{e8ef}";
+}
